@@ -1,11 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
+using MessagePack;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using osu.Framework.Logging;
+using osu.Framework.Platform;
 using Pisstaube.CacheDb;
 using Pisstaube.Database;
+using Pisstaube.Database.Models;
 using Pisstaube.Utils;
 
 namespace Pisstaube.Controllers
@@ -21,12 +26,64 @@ namespace Pisstaube.Controllers
     [ApiController]
     public class PrivateAPIController : ControllerBase
     {
+        private static readonly object _lock = new object();
         // GET /api/pisstaube/dump
         [HttpGet("dump")]
-        public ActionResult DumpDatabase([FromServices] PisstaubeDbContext db)
+        public ActionResult DumpDatabase(
+            [FromServices] PisstaubeDbContext db,
+            [FromServices] Storage storage
+            )
         {
-            return NotFound();
+            lock (_lock) {
+                var tmpStorage = storage.GetStorageForDirectory("tmp");
+                using (var dumpStream = tmpStorage.GetStream("dump.piss", FileAccess.Write))
+                {
+                    dumpStream.Write(BitConverter.GetBytes(db.BeatmapSet.Count()));
+                    foreach (var bmSet in db.BeatmapSet)
+                    {
+                        bmSet.ChildrenBeatmaps = db.Beatmaps.Where(bm => bm.ParentSetId == bmSet.SetId).ToList();
+                        LZ4MessagePackSerializer.Serialize(dumpStream, bmSet);
+                        dumpStream.Flush();
+                    }
+                }
+                return File(tmpStorage.GetStream("dump.piss"),
+                    "application/octet-stream",
+                    "dump.piss");
+            }
         }
+        
+        // GET /api/pisstaube/put?key={}
+        [HttpPut("put")]
+        public ActionResult DumpDatabase(
+            [FromServices] PisstaubeDbContext db,
+            [FromServices] Storage storage,
+            [FromQuery] string key
+        )
+        {
+            if (key != Environment.GetEnvironmentVariable("PRIVATE_API_KEY"))
+                return Unauthorized("Key is wrong!");
+            
+            lock (_lock) {
+                var f = Request.Form.Files["dump.piss"];
+                
+                using (var stream = f.OpenReadStream())
+                {
+                    var b = new byte[4];
+                    
+                    stream.Read(b);
+                    var setCount = BitConverter.ToInt32(b);
+
+                    for (var i = 0; i < setCount; i++)
+                    {
+                        db.BeatmapSet.Add(LZ4MessagePackSerializer.Deserialize<BeatmapSet>(stream));
+                        db.SaveChanges();
+                    }
+                }
+                
+                return Ok("Success!");
+            }
+        }
+
 
         [HttpGet("recovery")]
         public ActionResult Recovery(
