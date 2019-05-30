@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -54,9 +54,8 @@ namespace Pisstaube.Controllers
         
         // GET /api/pisstaube/put?key={}
         [HttpPut("put")]
-        public ActionResult DumpDatabase(
+        public ActionResult PutDatabase(
             [FromServices] PisstaubeDbContext db,
-            [FromServices] Storage storage,
             [FromQuery] string key
         )
         {
@@ -82,6 +81,39 @@ namespace Pisstaube.Controllers
                 
                 return Ok("Success!");
             }
+        }
+
+        [SuppressMessage("ReSharper", "NotAccessedField.Local")]
+        private struct PisstaubeStats
+        {
+            public int LatestCrawledId;
+            public bool IsCrawling;
+            public ulong MaxStorage;
+            public ulong StorageUsed;
+            public float StorageUsagePercent;
+        }
+        
+        
+        private int cInt;
+        // GET /api/pisstaube/stats
+        [HttpGet("stats")]
+        public ActionResult GetPisstaubeStats(
+            [FromServices] Crawler crawler,
+            [FromServices] Cleaner cleaner,
+            [FromServices] PisstaubeDbContext context
+        )
+        {
+            if (!crawler.IsCrawling && cInt == 0)
+                cInt = context.BeatmapSet.LastOrDefault()?.SetId + 1 ?? 0;
+            
+            return Ok(new PisstaubeStats
+            {
+                IsCrawling = crawler.IsCrawling,
+                LatestCrawledId = crawler.IsCrawling ? crawler.LatestId : cInt,
+                MaxStorage = cleaner.MaxSize,
+                StorageUsed = (ulong) cleaner.DataDirectorySize,
+                StorageUsagePercent = MathF.Round ((ulong)cleaner.DataDirectorySize / cleaner.MaxSize * 100, 2)
+            });
         }
 
 

@@ -13,8 +13,10 @@ namespace Pisstaube.Utils
     {
         private readonly PisstaubeCacheDbContextFactory _cache;
         private readonly ulong _maxSize;
-        private long _dataDirectorySize;
         private readonly Storage _cacheStorage;
+        
+        public ulong MaxSize => _maxSize;
+        public long DataDirectorySize { get; private set; }
         
         public Cleaner(Storage storage, PisstaubeCacheDbContextFactory cache)
         {
@@ -92,21 +94,21 @@ namespace Pisstaube.Utils
             _cacheStorage = storage.GetStorageForDirectory("cache");
             
             var info = new DirectoryInfo(_cacheStorage.GetFullPath("./")); 
-            _dataDirectorySize = info.EnumerateFiles().Sum(file => file.Length);
+            DataDirectorySize = info.EnumerateFiles().Sum(file => file.Length);
             
-            DogStatsd.Set("cleaner.storage_usage", (ulong) _dataDirectorySize / _maxSize);
+            DogStatsd.Set("cleaner.storage_usage", (ulong) DataDirectorySize / _maxSize);
         }
 
-        private bool IsFitting(long size) => (ulong) (size + _dataDirectorySize) <= _maxSize;
+        private bool IsFitting(long size) => (ulong) (size + DataDirectorySize) <= _maxSize;
 
-        public void IncreaseSize(long size) => _dataDirectorySize += size;
+        public void IncreaseSize(long size) => DataDirectorySize += size;
 
         public bool FreeStorage()
         {
             for (var i = 0; i < 1000; i++)
             {
-                Logger.LogPrint($"FreeStorage (DirectorySize: {_dataDirectorySize} MaxSize: {_maxSize})");
-                DogStatsd.Set("cleaner.storage_usage", (ulong) _dataDirectorySize / _maxSize);
+                Logger.LogPrint($"FreeStorage (DirectorySize: {DataDirectorySize} MaxSize: {_maxSize})");
+                DogStatsd.Set("cleaner.storage_usage", (ulong) DataDirectorySize / _maxSize);
                 if (IsFitting(0)) return true;
                 
                 Logger.LogPrint("Freeing Storage");
@@ -121,9 +123,9 @@ namespace Pisstaube.Utils
                         if (!_cacheStorage.Exists(map.SetId.ToString("x8")))
                             continue;
                     
-                        _dataDirectorySize -= new FileInfo(_cacheStorage.GetFullPath(map.SetId.ToString("x8"))).Length;
-                        if (_dataDirectorySize < 0)
-                            _dataDirectorySize = 0;
+                        DataDirectorySize -= new FileInfo(_cacheStorage.GetFullPath(map.SetId.ToString("x8"))).Length;
+                        if (DataDirectorySize < 0)
+                            DataDirectorySize = 0;
                     
                         _cacheStorage.Delete(map.SetId.ToString("x8"));
                         db.Context.SaveChanges();
@@ -139,9 +141,9 @@ namespace Pisstaube.Utils
                         if (!_cacheStorage.Exists(map.SetId.ToString("x8")))
                             continue;
                     
-                        _dataDirectorySize -= new FileInfo(_cacheStorage.GetFullPath(map.SetId.ToString("x8"))).Length;
-                        if (_dataDirectorySize < 0)
-                            _dataDirectorySize = 0;
+                        DataDirectorySize -= new FileInfo(_cacheStorage.GetFullPath(map.SetId.ToString("x8"))).Length;
+                        if (DataDirectorySize < 0)
+                            DataDirectorySize = 0;
                     
                         _cacheStorage.Delete(map.SetId.ToString("x8"));
                         db.Context.SaveChanges();

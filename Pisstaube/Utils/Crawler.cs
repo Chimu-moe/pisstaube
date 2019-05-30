@@ -18,10 +18,13 @@ namespace Pisstaube.Utils
     {
         private bool _should_stop;
         private bool _force_stop;
-        private int _latest_Id;
         private int _fail_count;
         private int _request_count;
         
+        public int LatestId { get; private set; }
+        public bool IsCrawling { get; private set; }
+
+
         private object _lock = new object();
         private List<Thread> _pool;
 
@@ -54,6 +57,7 @@ namespace Pisstaube.Utils
             Logger.LogPrint("Begin Crawling!");
             _force_stop = false;
             _should_stop = false;
+            IsCrawling = true;
 
             if (_dd_thread != null) {
                 _dd_thread = new Thread(() =>
@@ -61,7 +65,7 @@ namespace Pisstaube.Utils
                     while (true)
                     {
                         Thread.Sleep(TimeSpan.FromSeconds(30));
-                        lock (_lock) DogStatsd.Set("crawler.latest_id", _latest_Id);
+                        lock (_lock) DogStatsd.Set("crawler.latest_id", LatestId);
                     }
                 });
                 _dd_thread.Start();
@@ -104,7 +108,11 @@ namespace Pisstaube.Utils
                     continue;
                 }
 
-                if (_force_stop) break;
+                if (_force_stop)
+                {
+                    IsCrawling = false;
+                    break;
+                }
 
                 _thread_restarter.Start();
                 break;
@@ -120,7 +128,7 @@ namespace Pisstaube.Utils
             
             _pool = new List<Thread>();
             
-            _latest_Id = 0;
+            LatestId = 0;
         }
 
         public void Wait()
@@ -133,14 +141,14 @@ namespace Pisstaube.Utils
         {
             using(var _context = new PisstaubeDbContext()) {
                 lock (_lock)
-                    if (_latest_Id == 0)
-                        _latest_Id = _context.BeatmapSet.LastOrDefault()?.SetId + 1 ?? 0;
+                    if (LatestId == 0)
+                        LatestId = _context.BeatmapSet.LastOrDefault()?.SetId + 1 ?? 0;
                 
                 while (!_should_stop)
                 {
                     int id;
                     lock (_lock)
-                        id = _latest_Id++;
+                        id = LatestId++;
 
                     if (!Crawl(id, _context))
                         _fail_count++;
