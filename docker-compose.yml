@@ -18,7 +18,7 @@ services:
       - MARIADB_PORT=3306
       - DD_AGENT_HOST=datadog
       - MARIADB_USERNAME=root
-      - MARIADB_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobodycan                                                                                                                     conencttothisdatabasepog
+      - MARIADB_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobodycanconencttothisdatabasepog
       - ELASTIC_HOSTNAME=elasticsearch
       - ELASTIC_PORT=9200
     env_file:
@@ -55,7 +55,7 @@ services:
       - ./data/mysql_data/:/var/lib/mysql
     restart: on-failure
     environment:
-      - MYSQL_ROOT_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobody                                                                                                                     canconencttothisdatabasepog
+      - MYSQL_ROOT_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobodycanconencttothisdatabasepog
       - MYSQL_ROOT_HOST=%
     expose:
       - 3306
