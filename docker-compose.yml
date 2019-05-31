@@ -4,7 +4,7 @@ services:
     image: pisstaube
     build: ./
     volumes:
-      - ./data/:/pisstaube/data
+      - ./data/pisstaube_data/:/pisstaube/data
     links:
       - datadog
       - db
@@ -18,7 +18,7 @@ services:
       - MARIADB_PORT=3306
       - DD_AGENT_HOST=datadog
       - MARIADB_USERNAME=root
-      - MARIADB_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobodycanconencttothisdatabasepog
+      - MARIADB_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobodycan                                                                                                                     conencttothisdatabasepog
       - ELASTIC_HOSTNAME=elasticsearch
       - ELASTIC_PORT=9200
     env_file:
@@ -28,7 +28,7 @@ services:
       - 62011:80
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.1.0
+    image: bitnami/elasticsearch
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
@@ -40,8 +40,8 @@ services:
       memlock:
         soft: -1
         hard: -1
-    volumes:
-      - pisstaube_elastic_search_data:/usr/share/elasticsearch/data
+    #volumes:
+    #  - ./data/elasticsearch_data/:/bitnami/elasticsearch/data
     expose:
       - 9200
     #ports:
@@ -52,10 +52,10 @@ services:
     image: mysql:5.7.23
     command: --default-authentication-plugin=mysql_native_password
     volumes:
-      - pisstaube_mysql_data:/var/lib/mysql
+      - ./data/mysql_data/:/var/lib/mysql
     restart: on-failure
     environment:
-      - MYSQL_ROOT_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobodycanconencttothisdatabasepog
+      - MYSQL_ROOT_PASSWORD=supersecretpasswordthatnobodywilleverknowsincenobody                                                                                                                     canconencttothisdatabasepog
       - MYSQL_ROOT_HOST=%
     expose:
       - 3306
@@ -69,7 +69,3 @@ services:
     expose:
       - 8125
       - 8126
-
-volumes:
-  pisstaube_mysql_data:
-  pisstaube_elastic_search_data:
