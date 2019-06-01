@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using osu.Framework.IO.Network;
 using osu.Framework.Logging;
-using osu.Game.Online.API;
-using osu.Game.Online.API.Requests;
 using osu.Game.Rulesets;
 using Pisstaube.CacheDb;
 using Pisstaube.Database;
@@ -14,13 +13,12 @@ using StatsdClient;
 
 namespace Pisstaube.Utils
 {
-    public class Crawler : ICrawler
+    public class Kaesereibe : ICrawler
     {
         private bool _should_stop;
         private bool _force_stop;
         private int _fail_count;
-        private int _request_count;
-        
+
         public int LatestId { get; private set; }
         public bool IsCrawling { get; private set; }
         
@@ -28,26 +26,14 @@ namespace Pisstaube.Utils
         private List<Thread> _pool;
 
         private readonly BeatmapSearchEngine _search;
-        private readonly APIAccess _apiAccess;
-        private readonly RulesetStore _store;
-        private readonly BeatmapDownloader _downloader;
-        private readonly PisstaubeCacheDbContextFactory _cache;
         private readonly int _workerThreads;
         private Thread _thread_restarter;
         private Thread _dd_thread;
 
-        public Crawler(BeatmapSearchEngine search,
-            APIAccess apiAccess,
-            RulesetStore store,
-            BeatmapDownloader downloader,
-            PisstaubeCacheDbContextFactory cache)
+        public Kaesereibe(BeatmapSearchEngine search)
         {
             _pool = new List<Thread>();
             _search = search;
-            _apiAccess = apiAccess;
-            _store = store;
-            _downloader = downloader;
-            _cache = cache;
             _workerThreads = int.Parse(Environment.GetEnvironmentVariable("CRAWLER_THREADS"));
         }
 
@@ -154,7 +140,7 @@ namespace Pisstaube.Utils
                     else
                         _fail_count = 0;
 
-                    if (_fail_count > 50) // We failed 50 times, lets try tomorrow again! maybe there are new exciting beatmaps!
+                    if (_fail_count > 1000)
                         _should_stop = true;
                 }
             }
@@ -164,55 +150,35 @@ namespace Pisstaube.Utils
         {
             try
             {
-                while (!_apiAccess.IsLoggedIn)
-                    Thread.Sleep(1000);
+                var setRequest = new JsonWebRequest<BeatmapSet>($"https://{Environment.GetEnvironmentVariable("CHEESEGULL_API")}/api/s/{id}");
 
-                var setRequest = new GetBeatmapSetRequest(id);
-
-                lock (_lock)
-                    _request_count++;
-
-                setRequest.Perform(_apiAccess);
-                
-                lock (_lock)
-                    if (_request_count > int.Parse(Environment.GetEnvironmentVariable("CRAWLER_REQUESTS_PER_MINUTE")))
-                        Thread.Sleep(TimeSpan.FromMinutes(1));
-
-                var apiSet = setRequest.Result;
-
-                var localSet = apiSet?.ToBeatmapSet(_store);
-                if (localSet == null)
-                    return false;
-
-                var dbSet = BeatmapSet.FromBeatmapSetInfo(localSet);
-                if (dbSet == null)
-                    return false;
-                
-                foreach (var map in dbSet.ChildrenBeatmaps)
+                try
                 {
-                    var fileInfo = _downloader.Download(map);
-                    
-                    map.FileMd5 = _cache.Get()
-                        .CacheBeatmaps
-                        .Where(cmap => cmap.Hash == fileInfo.Hash)
-                        .Select(cmap => cmap.FileMd5)
-                        .FirstOrDefault();
+                    setRequest.Perform();
+                }
+                catch (Exception ex)
+                {
+                    if (!setRequest.ResponseString.StartsWith("null"))
+                        throw ex;
                 }
                 
+
+                var apiSet = setRequest.ResponseObject;
+                if (apiSet == null)
+                    return false;
+
                 lock (_lock)
                 {
-                    _context.BeatmapSet.Add(dbSet);
+                    _context.BeatmapSet.Add(apiSet);
                     _context.SaveChanges();
                 }
-
-                _search.IndexBeatmap(dbSet);
             }
             catch (Exception ex)
             {
                 Logger.Error(ex, $"Unknown Error occured while crawling Id {id}!");
                 
-                lock (_lock)
-                    Thread.Sleep(TimeSpan.FromMinutes(1));
+                // lock (_lock)
+                    // Thread.Sleep(TimeSpan.FromMinutes(1));
                 return false;
             }
             

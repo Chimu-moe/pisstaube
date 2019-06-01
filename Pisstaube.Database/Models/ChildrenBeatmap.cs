@@ -69,21 +69,24 @@ namespace Pisstaube.Database.Models
             if (info == null)
                 return null;
 
-            var cb = new ChildrenBeatmap();
+            var cb = new ChildrenBeatmap
+            {
+                BeatmapId = info.OnlineBeatmapID ?? -1,
+                ParentSetId = info.BeatmapSetInfoID,
+                Parent = parent,
+                DiffName = info.Version,
+                FileMd5 = info.MD5Hash,
+                Mode = (PlayMode) info.RulesetID,
+                Ar = info.BaseDifficulty.ApproachRate,
+                Od = info.BaseDifficulty.OverallDifficulty,
+                Cs = info.BaseDifficulty.CircleSize,
+                Hp = info.BaseDifficulty.DrainRate,
+                TotalLength = (int) info.OnlineInfo.Length,
+                HitLength = (int) info.StackLeniency,
+                Playcount = info.OnlineInfo.PassCount
+            };
 
-            cb.BeatmapId = info.OnlineBeatmapID ?? -1;
-            cb.ParentSetId = info.BeatmapSetInfoID;
-            cb.Parent = parent;
-            cb.DiffName = info.Version;
-            cb.FileMd5 = info.MD5Hash;
-            cb.Mode = (PlayMode) info.RulesetID;
-            cb.Ar = info.BaseDifficulty.ApproachRate;
-            cb.Od = info.BaseDifficulty.OverallDifficulty;
-            cb.Cs = info.BaseDifficulty.CircleSize;
-            cb.Hp = info.BaseDifficulty.DrainRate;
-            cb.TotalLength = (int) info.OnlineInfo.Length;
-            cb.HitLength = (int) info.StackLeniency; // TODO: check
-            cb.Playcount = info.OnlineInfo.PassCount;
+            // TODO: check
             cb.Playcount = info.OnlineInfo.PlayCount;
             cb.MaxCombo = 0; // TODO: Fix
             cb.DifficultyRating = info.StarDifficulty;

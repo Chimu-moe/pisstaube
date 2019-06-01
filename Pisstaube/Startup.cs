@@ -87,7 +87,8 @@ namespace Pisstaube
                 .AddSingleton(new FileStore(osuContextFactory, dataStorage))
                 .AddSingleton(new RulesetStore(osuContextFactory))
                 .AddSingleton<BeatmapDownloader>()
-                .AddSingleton<Crawler>();
+                .AddSingleton<Crawler>()
+                .AddSingleton<Kaesereibe>();
             
             services
                 .AddMvc(options =>
@@ -107,7 +108,7 @@ namespace Pisstaube
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env,
-            Crawler crawler, APIAccess apiv2)
+            Crawler crawler, APIAccess apiv2, Kaesereibe reibe)
         {
             if (env.IsDevelopment())
                 app.UseDeveloperExceptionPage();
@@ -124,6 +125,11 @@ namespace Pisstaube
                 crawler.BeginCrawling();
             else
                 DogStatsd.ServiceCheck("crawler.is_crawling", Status.CRITICAL);
+
+            if (Environment.GetEnvironmentVariable("CHEESEGULL_CRAWLER_DISABLED") != "true")
+                reibe.BeginCrawling();
+            else
+                DogStatsd.ServiceCheck("kaesereibe.is_crawling", Status.CRITICAL);
 
             if (!Directory.Exists("data"))
                 Directory.CreateDirectory("data");
