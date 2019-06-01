@@ -1,3 +1,6 @@
 [submodule "osu"]
 	path = osu
 	url = git://github.com/Mempler/osu.git
+[submodule "Sora"]
+	path = Sora
+	url = https://github.com/Mempler/Sora

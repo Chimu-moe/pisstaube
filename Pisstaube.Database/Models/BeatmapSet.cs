@@ -1,76 +1,62 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using MessagePack;
 using Newtonsoft.Json;
 using opi.v1;
 using osu.Game.Beatmaps;
+using Shared.Helpers;
+using Shared.Interfaces;
 
 namespace Pisstaube.Database.Models
 {
-    [MessagePackObject]
-    public class BeatmapSet
+    [Serializable]
+    public class BeatmapSet : ISerializer
     {
-        [System.ComponentModel.DataAnnotations.Key]
         [Required]
+        [Key]
         [JsonProperty("SetID")]
-        [MessagePack.Key(0)]
         public int SetId { get; set; }
 
         [JsonProperty("ChildrenBeatmaps")]
-        [MessagePack.Key(1)]
         public List<ChildrenBeatmap> ChildrenBeatmaps { get; set; }
 
         [JsonProperty("RankedStatus")]
-        [MessagePack.Key(2)]
         public BeatmapSetOnlineStatus RankedStatus { get; set; }
 
         [JsonProperty("ApprovedDate")]
-        [MessagePack.Key(3)]
         public DateTime? ApprovedDate { get; set; }
 
         [JsonProperty("LastUpdate")]
-        [MessagePack.Key(4)]
         public DateTime? LastUpdate { get; set; }
 
         [JsonProperty("LastChecked")]
-        [MessagePack.Key(5)]
         public DateTime? LastChecked { get; set; }
 
         [JsonProperty("Artist")]
-        [MessagePack.Key(6)]
         public string Artist { get; set; }
 
         [JsonProperty("Title")]
-        [MessagePack.Key(7)]
         public string Title { get; set; }
 
         [JsonProperty("Creator")]
-        [MessagePack.Key(8)]
         public string Creator { get; set; }
 
         [JsonProperty("Source")]
-        [MessagePack.Key(9)]
         public string Source { get; set; }
 
         [JsonProperty("Tags")]
-        [MessagePack.Key(10)]
         public string Tags { get; set; }
 
         [JsonProperty("HasVideo")]
-        [MessagePack.Key(11)]
         public bool HasVideo { get; set; }
 
         [JsonProperty("Genre")]
-        [MessagePack.Key(12)]
         public Genre Genre { get; set; }
 
         [JsonProperty("Language")]
-        [MessagePack.Key(13)]
         public Language Language { get; set; }
 
         [JsonProperty("Favourites")]
-        [MessagePack.Key(14)]
         public long Favourites { get; set; }
 
         public static BeatmapSet FromBeatmapSetInfo(BeatmapSetInfo info)
@@ -101,6 +87,58 @@ namespace Pisstaube.Database.Models
                 beatmapSet.ChildrenBeatmaps.Add(ChildrenBeatmap.FromBeatmapInfo(map, beatmapSet));
 
             return beatmapSet;
+        }
+
+        public void ReadFromStream(MStreamReader sr)
+        {
+            SetId = sr.ReadInt32();
+
+            var count = sr.ReadInt32();
+            ChildrenBeatmaps = new List<ChildrenBeatmap>();
+            for (var i = 0; i < count; i++)
+                ChildrenBeatmaps.Add(sr.ReadData<ChildrenBeatmap>());
+
+            RankedStatus = (BeatmapSetOnlineStatus) sr.ReadByte();
+
+            if (DateTime.TryParse(sr.ReadString(), out var res))
+                ApprovedDate = res;
+            
+            if (DateTime.TryParse(sr.ReadString(), out res))
+                LastUpdate = res;
+            
+            if (DateTime.TryParse(sr.ReadString(), out res))
+                LastChecked = res;
+
+            Artist = sr.ReadString();
+            Title = sr.ReadString();
+            Creator = sr.ReadString();
+            Source = sr.ReadString();
+            Tags = sr.ReadString();
+            HasVideo = sr.ReadBoolean();
+            Genre = (Genre) sr.ReadByte();
+            Language = (Language) sr.ReadByte();
+            Favourites = sr.ReadInt64();
+        }
+
+        public void WriteToStream(MStreamWriter sw)
+        {
+            sw.Write(SetId);
+            sw.Write(ChildrenBeatmaps.Count);
+            foreach (var bm in ChildrenBeatmaps)
+                sw.Write(bm);
+            sw.Write((byte) RankedStatus);
+            sw.Write(ApprovedDate?.ToString(), true);
+            sw.Write(LastUpdate?.ToString(), true);
+            sw.Write(LastChecked?.ToString(), true);
+            sw.Write(Artist, true);
+            sw.Write(Title, true);
+            sw.Write(Creator, true);
+            sw.Write(Source, true);
+            sw.Write(Tags, true);
+            sw.Write(HasVideo);
+            sw.Write((byte) Genre);
+            sw.Write((byte) Language);
+            sw.Write(Favourites);
         }
     }
 }

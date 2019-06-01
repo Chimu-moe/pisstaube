@@ -2,8 +2,8 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
-using MessagePack;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using osu.Framework.Logging;
@@ -12,6 +12,8 @@ using Pisstaube.CacheDb;
 using Pisstaube.Database;
 using Pisstaube.Database.Models;
 using Pisstaube.Utils;
+using SharpCompress.Compressors;
+using SharpCompress.Compressors.Deflate;
 
 namespace Pisstaube.Controllers
 {
@@ -37,13 +39,15 @@ namespace Pisstaube.Controllers
             lock (_lock) {
                 var tmpStorage = storage.GetStorageForDirectory("tmp");
                 using (var dumpStream = tmpStorage.GetStream("dump.piss", FileAccess.Write))
+                using (var compressionStream = new GZipStream(dumpStream, 
+                    CompressionMode.Compress))
+                using (var sw = new StreamWriter(compressionStream))
                 {
-                    dumpStream.Write(BitConverter.GetBytes(db.BeatmapSet.Count()));
+                    sw.Write(db.BeatmapSet.Count());
                     foreach (var bmSet in db.BeatmapSet)
                     {
                         bmSet.ChildrenBeatmaps = db.Beatmaps.Where(bm => bm.ParentSetId == bmSet.SetId).ToList();
-                        LZ4MessagePackSerializer.Serialize(dumpStream, bmSet);
-                        dumpStream.Flush();
+                        sw.Write(bmSet);
                     }
                 }
                 return File(tmpStorage.GetStream("dump.piss"),
@@ -56,12 +60,25 @@ namespace Pisstaube.Controllers
         [HttpPut("put")]
         public ActionResult PutDatabase(
             [FromServices] PisstaubeDbContext db,
-            [FromQuery] string key
+            [FromServices] BeatmapSearchEngine searchEngine,
+            [FromQuery] string key,
+            [FromQuery] bool drop
         )
         {
             if (key != Environment.GetEnvironmentVariable("PRIVATE_API_KEY"))
                 return Unauthorized("Key is wrong!");
-            
+
+            if (drop)
+            {
+                searchEngine.DeleteAllBeatmaps();
+                db.Database.ExecuteSqlCommand("SET FOREIGN_KEY_CHECKS = 0;" +
+                                              "TRUNCATE TABLE `Beatmaps`;" +
+                                              "ALTER TABLE `Beatmaps` AUTO_INCREMENT = 1;" +
+                                              "TRUNCATE TABLE `BeatmapSet`;" +
+                                              "ALTER TABLE `BeatmapSet` AUTO_INCREMENT = 1;" +
+                                              "SET FOREIGN_KEY_CHECKS = 1;");
+            }
+
             lock (_lock) {
                 var f = Request.Form.Files["dump.piss"];
                 
@@ -72,9 +89,18 @@ namespace Pisstaube.Controllers
                     stream.Read(b);
                     var setCount = BitConverter.ToInt32(b);
 
+                    var bf = new BinaryFormatter();
                     for (var i = 0; i < setCount; i++)
                     {
-                        db.BeatmapSet.Add(LZ4MessagePackSerializer.Deserialize<BeatmapSet>(stream));
+                        var set = (BeatmapSet) bf.Deserialize(stream);
+                        
+                        Logger.LogPrint($"Importing BeatmapSet {set.SetId} {set.Artist} - {set.Title} ({set.Creator}) of Index {i}", LoggingTarget.Database, LogLevel.Important);
+                        if (db.BeatmapSet.Any(s => s.SetId == set.SetId)) {
+                            db.BeatmapSet.Update(set);
+                        } else {
+                            db.BeatmapSet.Add(set);
+                        }
+                        searchEngine.IndexBeatmap(set);
                         db.SaveChanges();
                     }
                 }

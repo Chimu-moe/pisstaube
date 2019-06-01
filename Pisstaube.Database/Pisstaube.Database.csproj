@@ -7,7 +7,6 @@
     <ItemGroup>
       <PackageReference Include="dotenv.net" Version="1.0.4" />
       <PackageReference Include="Elasticsearch.Net" Version="7.0.0-alpha2" />
-      <PackageReference Include="MessagePack" Version="1.7.3.7" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="2.2.4" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.2.4" />
       <PackageReference Include="NEST" Version="7.0.0-alpha2" />
@@ -19,6 +18,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\osu\osu.Game\osu.Game.csproj" />
+      <ProjectReference Include="..\Sora\Shared\Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>
