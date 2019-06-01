@@ -38,6 +38,10 @@ namespace Pisstaube.Controllers
         {
             lock (_lock) {
                 var tmpStorage = storage.GetStorageForDirectory("tmp");
+                
+                if (tmpStorage.Exists("dump.piss"))
+                    System.IO.File.Delete(tmpStorage.GetFullPath("dump.piss"));
+                
                 using (var dumpStream = tmpStorage.GetStream("dump.piss", FileAccess.Write))
                 using (var sw = new MStreamWriter(dumpStream))
                 {
