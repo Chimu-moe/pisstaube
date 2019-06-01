@@ -39,7 +39,7 @@ namespace Pisstaube.Controllers
             lock (_lock) {
                 var tmpStorage = storage.GetStorageForDirectory("tmp");
                 using (var dumpStream = tmpStorage.GetStream("dump.piss", FileAccess.Write))
-                using (var sw = new StreamWriter(dumpStream))
+                using (var sw = new MStreamWriter(dumpStream))
                 {
                     sw.Write(db.BeatmapSet.Count());
                     foreach (var bmSet in db.BeatmapSet)

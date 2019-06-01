@@ -165,7 +165,7 @@ namespace Pisstaube.Utils
         {
             try
             {
-                while(!_apiAccess.IsLoggedIn)
+                while (!_apiAccess.IsLoggedIn)
                     Thread.Sleep(1000);
 
                 var setRequest = new GetBeatmapSetRequest(id);
