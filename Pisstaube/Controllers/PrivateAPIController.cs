@@ -12,8 +12,8 @@ using Pisstaube.CacheDb;
 using Pisstaube.Database;
 using Pisstaube.Database.Models;
 using Pisstaube.Utils;
-using SharpCompress.Compressors;
-using SharpCompress.Compressors.Deflate;
+using Shared.Helpers;
+using Logger = osu.Framework.Logging.Logger;
 
 namespace Pisstaube.Controllers
 {
@@ -39,9 +39,7 @@ namespace Pisstaube.Controllers
             lock (_lock) {
                 var tmpStorage = storage.GetStorageForDirectory("tmp");
                 using (var dumpStream = tmpStorage.GetStream("dump.piss", FileAccess.Write))
-                using (var compressionStream = new GZipStream(dumpStream, 
-                    CompressionMode.Compress))
-                using (var sw = new StreamWriter(compressionStream))
+                using (var sw = new StreamWriter(dumpStream))
                 {
                     sw.Write(db.BeatmapSet.Count());
                     foreach (var bmSet in db.BeatmapSet)
@@ -83,7 +81,27 @@ namespace Pisstaube.Controllers
                 var f = Request.Form.Files["dump.piss"];
                 
                 using (var stream = f.OpenReadStream())
+                using (var sr = new MStreamReader(stream))
                 {
+                    var count = sr.ReadInt32();
+                    Logger.LogPrint($"Count: {count}");
+
+                    for (var i = 0; i < count; i++)
+                    {
+                        var set = sr.ReadData<BeatmapSet>();
+                        
+                        Logger.LogPrint($"Importing BeatmapSet {set.SetId} {set.Artist} - {set.Title} ({set.Creator}) of Index {i}", LoggingTarget.Database, LogLevel.Important);
+                        if (db.BeatmapSet.Any(s => s.SetId == set.SetId)) {
+                            db.BeatmapSet.Update(set);
+                        } else {
+                            db.BeatmapSet.Add(set);
+                        }
+                    }
+                    
+                    db.SaveChanges();
+                    
+                    /*
+                    
                     var b = new byte[4];
                     
                     stream.Read(b);
@@ -103,6 +121,8 @@ namespace Pisstaube.Controllers
                         searchEngine.IndexBeatmap(set);
                         db.SaveChanges();
                     }
+                    
+                    */
                 }
                 
                 return Ok("Success!");
