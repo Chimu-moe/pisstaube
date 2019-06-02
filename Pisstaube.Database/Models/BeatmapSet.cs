@@ -98,7 +98,7 @@ namespace Pisstaube.Database.Models
             for (var i = 0; i < count; i++)
                 ChildrenBeatmaps.Add(sr.ReadData<ChildrenBeatmap>());
 
-            RankedStatus = (BeatmapSetOnlineStatus) sr.ReadByte();
+            RankedStatus = (BeatmapSetOnlineStatus) sr.ReadSByte();
 
             if (DateTime.TryParse(sr.ReadString(), out var res))
                 ApprovedDate = res;
@@ -115,8 +115,8 @@ namespace Pisstaube.Database.Models
             Source = sr.ReadString();
             Tags = sr.ReadString();
             HasVideo = sr.ReadBoolean();
-            Genre = (Genre) sr.ReadByte();
-            Language = (Language) sr.ReadByte();
+            Genre = (Genre) sr.ReadSByte();
+            Language = (Language) sr.ReadSByte();
             Favourites = sr.ReadInt64();
         }
 
@@ -126,7 +126,7 @@ namespace Pisstaube.Database.Models
             sw.Write(ChildrenBeatmaps.Count);
             foreach (var bm in ChildrenBeatmaps)
                 sw.Write(bm);
-            sw.Write((byte) RankedStatus);
+            sw.Write((sbyte) RankedStatus);
             sw.Write(ApprovedDate?.ToString(), true);
             sw.Write(LastUpdate?.ToString(), true);
             sw.Write(LastChecked?.ToString(), true);
@@ -136,8 +136,8 @@ namespace Pisstaube.Database.Models
             sw.Write(Source, true);
             sw.Write(Tags, true);
             sw.Write(HasVideo);
-            sw.Write((byte) Genre);
-            sw.Write((byte) Language);
+            sw.Write((sbyte) Genre);
+            sw.Write((sbyte) Language);
             sw.Write(Favourites);
         }
     }

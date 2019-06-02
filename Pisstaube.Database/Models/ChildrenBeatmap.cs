@@ -100,7 +100,7 @@ namespace Pisstaube.Database.Models
             ParentSetId = sr.ReadInt32();
             DiffName = sr.ReadString();
             FileMd5 = sr.ReadString();
-            Mode = (PlayMode) sr.ReadByte();
+            Mode = (PlayMode) sr.ReadSByte();
             Bpm = sr.ReadSingle();
             Ar = sr.ReadSingle();
             Od = sr.ReadSingle();
@@ -119,7 +119,7 @@ namespace Pisstaube.Database.Models
             sw.Write(ParentSetId);
             sw.Write(DiffName, true);
             sw.Write(FileMd5, true);
-            sw.Write((byte) Mode);
+            sw.Write((sbyte) Mode);
             sw.Write(Bpm);
             sw.Write(Ar);
             sw.Write(Od);
