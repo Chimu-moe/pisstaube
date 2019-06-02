@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
@@ -45,8 +46,15 @@ namespace Pisstaube.Controllers
         [HttpGet]
         public ActionResult Get()
         {
-            // Please dont remove (Written by Mempler)!
-            return Ok("Running Pisstaube, a fuck off of cheesegull Written by Mempler available on Github under MIT License!");
+            var f = _storage.GetStream("pisse.html", FileAccess.ReadWrite);
+                
+            if (f.Length == 0) {
+                f.Write(Encoding.UTF8.GetBytes("Running Pisstaube, a fuck off of cheesegull Written by Mempler available on Github under MIT License!"));
+                f.Flush();
+                f.Position = 0;
+            }
+
+            return Ok(f);
         }
 
         // GET /osu/:beatmapId
