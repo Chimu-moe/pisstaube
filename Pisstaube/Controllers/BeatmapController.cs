@@ -1,10 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
-using osu.Game.Beatmaps;
-using osu.Game.Online.API;
-using osu.Game.Online.API.Requests;
 using Pisstaube.Database;
 using Pisstaube.Database.Models;
 using StatsdClient;
@@ -15,11 +11,11 @@ namespace Pisstaube.Controllers
     [ApiController]
     public class BeatmapController : ControllerBase
     {
-        private readonly PisstaubeDbContext _context;
+        private readonly PisstaubeDbContextFactory _contextFactory;
 
-        public BeatmapController(PisstaubeDbContext context)
+        public BeatmapController(PisstaubeDbContextFactory contextFactory)
         {
-            _context = context;
+            _contextFactory = contextFactory;
         }
         
         [HttpGet]
@@ -33,21 +29,21 @@ namespace Pisstaube.Controllers
         public ActionResult<ChildrenBeatmap> GetBeatmap(int beatmapId)
         {
             DogStatsd.Increment("beatmap.request");
-            return _context.Beatmaps.FirstOrDefault(cb => cb.BeatmapId == beatmapId);
+            return _contextFactory.Get().Beatmaps.FirstOrDefault(cb => cb.BeatmapId == beatmapId);
         }
 
         // GET /api/b/:BeatmapSetId
         [HttpGet("s/{beatmapSetId:int}")]
         public ActionResult<BeatmapSet> GetSet(int beatmapSetId)
         {
-            var set = _context.BeatmapSet.FirstOrDefault(s => s.SetId == beatmapSetId);
+            var set = _contextFactory.Get().BeatmapSet.FirstOrDefault(s => s.SetId == beatmapSetId);
             
             DogStatsd.Increment("beatmap.set.request");
             
             if (set == null)
                 return null;
             
-            set.ChildrenBeatmaps = _context.Beatmaps.Where(cb => cb.ParentSetId == set.SetId).ToList();
+            set.ChildrenBeatmaps = _contextFactory.Get().Beatmaps.Where(cb => cb.ParentSetId == set.SetId).ToList();
             return set;
         }
     }

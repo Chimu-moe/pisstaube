@@ -24,16 +24,16 @@ namespace Pisstaube.Utils
         
         private object _lock = new object();
         private List<Thread> _pool;
-
-        private readonly BeatmapSearchEngine _search;
+        
+        private readonly PisstaubeDbContextFactory _contextFactory;
         private readonly int _workerThreads;
         private Thread _thread_restarter;
         private Thread _dd_thread;
 
-        public Kaesereibe(BeatmapSearchEngine search)
+        public Kaesereibe(PisstaubeDbContextFactory contextFactory)
         {
             _pool = new List<Thread>();
-            _search = search;
+            _contextFactory = contextFactory;
             _workerThreads = int.Parse(Environment.GetEnvironmentVariable("CRAWLER_THREADS"));
         }
 
@@ -124,25 +124,25 @@ namespace Pisstaube.Utils
 
         private void _crawl()
         {
-            using(var _context = new PisstaubeDbContext()) {
-                lock (_lock)
-                    if (LatestId == 0)
-                        LatestId = _context.BeatmapSet.LastOrDefault()?.SetId + 1 ?? 0;
+            lock (_lock)
+                if (LatestId == 0)
+                    LatestId = _contextFactory.Get().BeatmapSet.LastOrDefault()?.SetId + 1 ?? 0;
                 
-                while (!_should_stop)
+            while (!_should_stop)
+            {
+                int id;
+                lock (_lock)
+                    id = LatestId++;
+                using (var db = _contextFactory.GetForWrite())
                 {
-                    int id;
-                    lock (_lock)
-                        id = LatestId++;
-
-                    if (!Crawl(id, _context))
+                    if (!Crawl(id, db.Context))
                         _fail_count++;
                     else
                         _fail_count = 0;
-
-                    if (_fail_count > 1000)
-                        _should_stop = true;
                 }
+
+                if (_fail_count > 1000)
+                    _should_stop = true;
             }
         }
 
@@ -156,12 +156,11 @@ namespace Pisstaube.Utils
                 {
                     setRequest.Perform();
                 }
-                catch (Exception ex)
+                catch
                 {
                     if (!setRequest.ResponseString.StartsWith("null"))
-                        throw ex;
+                        throw;
                 }
-                
 
                 var apiSet = setRequest.ResponseObject;
                 if (apiSet == null)

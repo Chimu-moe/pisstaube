@@ -30,6 +30,7 @@ namespace Pisstaube
             dataStorage = new NativeStorage("data");
             osuContextFactory = new DatabaseContextFactory(dataStorage);
             cacheContextFactory = new PisstaubeCacheDbContextFactory(dataStorage);
+            dbContextFactory = new PisstaubeDbContextFactory();
             
             // copy paste of OsuGameBase.cs
             try
@@ -64,6 +65,7 @@ namespace Pisstaube
 
         private readonly DatabaseContextFactory osuContextFactory;
         private readonly PisstaubeCacheDbContextFactory cacheContextFactory;
+        private readonly PisstaubeDbContextFactory dbContextFactory;
         private readonly NativeStorage dataStorage;
 
         // This method gets called by the runtime. Use this method to add services to the container.
@@ -77,6 +79,7 @@ namespace Pisstaube
                 .AddSingleton<BeatmapSearchEngine>()
                 .AddSingleton<Storage>(dataStorage)
                 .AddSingleton(cacheContextFactory)
+                .AddSingleton(dbContextFactory)
                 .AddSingleton<OsuConfigManager>()
                 .AddSingleton<APIAccess>()
                 .AddSingleton<Cleaner>()

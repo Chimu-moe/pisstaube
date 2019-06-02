@@ -24,20 +24,20 @@ namespace Pisstaube.Controllers
         private readonly Cleaner _cleaner;
         private readonly Storage _storage;
         private readonly Storage _fileStorage;
-        private readonly PisstaubeDbContext _context;
+        private readonly PisstaubeDbContextFactory _contextFactory;
         private readonly PisstaubeCacheDbContextFactory _cache;
         
         public IndexController(APIAccess apiAccess,
             Cleaner cleaner,
             Storage storage,
-            PisstaubeDbContext context,
-            PisstaubeCacheDbContextFactory cache)
+            PisstaubeCacheDbContextFactory cache,
+            PisstaubeDbContextFactory contextFactory)
         {
             _apiAccess = apiAccess;
             _cleaner = cleaner;
             _storage = storage;
-            _context = context;
             _cache = cache;
+            _contextFactory = contextFactory;
             _fileStorage = storage.GetStorageForDirectory("files");
         }
         
@@ -93,7 +93,7 @@ namespace Pisstaube.Controllers
                 _storage.GetFullPath("cache", true);
 
             BeatmapSet set;
-            if ((set = _context.BeatmapSet.FirstOrDefault(bmset => bmset.SetId == beatmapSetId)) == null)
+            if ((set = _contextFactory.Get().BeatmapSet.FirstOrDefault(bmset => bmset.SetId == beatmapSetId)) == null)
                 return NotFound("Set not found");
             
             var cacheStorage = _storage.GetStorageForDirectory("cache");

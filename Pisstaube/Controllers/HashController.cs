@@ -12,11 +12,11 @@ namespace Pisstaube.Controllers
     [ApiController]
     public class HashController : ControllerBase
     {
-        private readonly PisstaubeDbContext _context;
+        private readonly PisstaubeDbContextFactory _contextFactory;
 
-        public HashController(PisstaubeDbContext context)
+        public HashController(PisstaubeDbContextFactory contextFactory)
         {
-            _context = context;
+            _contextFactory = contextFactory;
         }
         
         // GET /api/hash
@@ -30,15 +30,15 @@ namespace Pisstaube.Controllers
         [HttpGet("{hash}")]
         public ActionResult<BeatmapSet> Get(string hash)
         {
-            var bm = _context.Beatmaps.FirstOrDefault(cb => cb.FileMd5 == hash);
+            var bm = _contextFactory.Get().Beatmaps.FirstOrDefault(cb => cb.FileMd5 == hash);
             if (bm == null)
                 return null;
 
-            var set = _context.BeatmapSet.FirstOrDefault(s => s.SetId == bm.ParentSetId);
+            var set = _contextFactory.Get().BeatmapSet.FirstOrDefault(s => s.SetId == bm.ParentSetId);
             if (set == null)
                 return null;
             
-            set.ChildrenBeatmaps = _context.Beatmaps.Where(cb => cb.ParentSetId == set.SetId).ToList();
+            set.ChildrenBeatmaps = _contextFactory.Get().Beatmaps.Where(cb => cb.ParentSetId == set.SetId).ToList();
             return set;
         }
     }

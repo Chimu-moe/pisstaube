@@ -2,8 +2,6 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Threading;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using osu.Framework.Logging;
@@ -28,7 +26,7 @@ namespace Pisstaube.Controllers
     [ApiController]
     public class PrivateAPIController : ControllerBase
     {
-        private readonly PisstaubeDbContext _db;
+        private readonly PisstaubeDbContextFactory _contextFactory;
         private readonly Storage _storage;
         private readonly BeatmapSearchEngine _searchEngine;
         private readonly Crawler _crawler;
@@ -37,11 +35,11 @@ namespace Pisstaube.Controllers
 
         private static readonly object _lock = new object();
 
-        public PrivateAPIController(PisstaubeDbContext db,
+        public PrivateAPIController(PisstaubeDbContextFactory contextFactory,
             Storage storage, BeatmapSearchEngine searchEngine, Crawler crawler, Cleaner cleaner,
             PisstaubeCacheDbContextFactory cache)
         {
-            _db = db;
+            _contextFactory = contextFactory;
             _storage = storage;
             _searchEngine = searchEngine;
             _crawler = crawler;
@@ -65,10 +63,10 @@ namespace Pisstaube.Controllers
                 using (var dumpStream = tmpStorage.GetStream("dump.piss", FileAccess.Write))
                 using (var sw = new MStreamWriter(dumpStream))
                 {
-                    sw.Write(_db.BeatmapSet.Count());
-                    foreach (var bmSet in _db.BeatmapSet)
+                    sw.Write(_contextFactory.Get().BeatmapSet.Count());
+                    foreach (var bmSet in _contextFactory.Get().BeatmapSet)
                     {
-                        bmSet.ChildrenBeatmaps = _db.Beatmaps.Where(bm => bm.ParentSetId == bmSet.SetId).ToList();
+                        bmSet.ChildrenBeatmaps = _contextFactory.Get().Beatmaps.Where(bm => bm.ParentSetId == bmSet.SetId).ToList();
                         sw.Write(bmSet);
                     }
                 }
@@ -91,13 +89,15 @@ namespace Pisstaube.Controllers
             if (drop)
             {
                 _searchEngine.DeleteAllBeatmaps();
-                _db.Database.ExecuteSqlCommand
+                using (var db = _contextFactory.GetForWrite()) {
+                    db.Context.Database.ExecuteSqlCommand
                                              ("SET FOREIGN_KEY_CHECKS = 0;" +
                                               "TRUNCATE TABLE `Beatmaps`;" +
                                               "ALTER TABLE `Beatmaps` AUTO_INCREMENT = 1;" +
                                               "TRUNCATE TABLE `BeatmapSet`;" +
                                               "ALTER TABLE `BeatmapSet` AUTO_INCREMENT = 1;" +
                                               "SET FOREIGN_KEY_CHECKS = 1;");
+                }
             }
 
             lock (_lock) {
@@ -105,6 +105,7 @@ namespace Pisstaube.Controllers
                 
                 using (var stream = f.OpenReadStream())
                 using (var sr = new MStreamReader(stream))
+                using (var db = _contextFactory.GetForWrite())
                 {
                     var count = sr.ReadInt32();
                     Logger.LogPrint($"Count: {count}");
@@ -116,15 +117,14 @@ namespace Pisstaube.Controllers
                         Logger.LogPrint($"Importing BeatmapSet {set.SetId} {set.Artist} - {set.Title} ({set.Creator}) of Index {i}", LoggingTarget.Database, LogLevel.Important);
 
                         if (!drop)
-                            if (_db.BeatmapSet.Any(s => s.SetId == set.SetId))
-                                _db.BeatmapSet.Update(set);
+                            if (db.Context.BeatmapSet.Any(s => s.SetId == set.SetId))
+                                db.Context.BeatmapSet.Update(set);
                             else
-                                _db.BeatmapSet.Add(set);
+                                db.Context.BeatmapSet.Add(set);
                         else
-                            _db.BeatmapSet.Add(set);
+                            db.Context.BeatmapSet.Add(set);
                        
                     }
-                    _db.SaveChanges();
                     Logger.LogPrint("Finish importing maps!");
                 }
                 
@@ -150,7 +150,7 @@ namespace Pisstaube.Controllers
         {
             lock (_lock)
                 if (!_crawler.IsCrawling && cInt == 0)
-                    cInt = _db.BeatmapSet.LastOrDefault()?.SetId + 1 ?? 0;
+                    cInt = _contextFactory.Get().BeatmapSet.LastOrDefault()?.SetId + 1 ?? 0;
 
             return Ok(new PisstaubeStats
             {
@@ -180,9 +180,9 @@ namespace Pisstaube.Controllers
 
                     _searchEngine.DeleteAllBeatmaps();
                     
-                    foreach (var beatmapSet in _db.BeatmapSet)
+                    foreach (var beatmapSet in _contextFactory.Get().BeatmapSet)
                     {
-                        beatmapSet.ChildrenBeatmaps = _db.Beatmaps.Where(b => b.ParentSetId == beatmapSet.SetId).ToList();
+                        beatmapSet.ChildrenBeatmaps = _contextFactory.Get().Beatmaps.Where(b => b.ParentSetId == beatmapSet.SetId).ToList();
                         _searchEngine.IndexBeatmap(beatmapSet);
                     }
                     
@@ -194,13 +194,14 @@ namespace Pisstaube.Controllers
                     
                     _crawler.Stop();
                     _searchEngine.DeleteAllBeatmaps();
-                    _db.Database.ExecuteSqlCommand("SET FOREIGN_KEY_CHECKS = 0;" +
-                                                  "TRUNCATE TABLE `Beatmaps`;" +
-                                                  "ALTER TABLE `Beatmaps` AUTO_INCREMENT = 1;" +
-                                                  "TRUNCATE TABLE `BeatmapSet`;" +
-                                                  "ALTER TABLE `BeatmapSet` AUTO_INCREMENT = 1;" +
-                                                  "SET FOREIGN_KEY_CHECKS = 1;");
-
+                    using (var db = _contextFactory.GetForWrite()) {
+                        db.Context.Database.ExecuteSqlCommand("SET FOREIGN_KEY_CHECKS = 0;" +
+                                                      "TRUNCATE TABLE `Beatmaps`;" +
+                                                      "ALTER TABLE `Beatmaps` AUTO_INCREMENT = 1;" +
+                                                      "TRUNCATE TABLE `BeatmapSet`;" +
+                                                      "ALTER TABLE `BeatmapSet` AUTO_INCREMENT = 1;" +
+                                                      "SET FOREIGN_KEY_CHECKS = 1;");
+                    }
                     using (var cacheDb = _cache.GetForWrite())
                     {
                         cacheDb.Context.Database.ExecuteSqlCommand(
@@ -213,10 +214,12 @@ namespace Pisstaube.Controllers
                     Logger.LogPrint("Recrawl All unknown maps!");
                     
                     _crawler.Stop();
-                    for (var i = 0; i < _db.BeatmapSet.Last().SetId; i++)
-                    {
-                        if (!_db.BeatmapSet.Any(set => set.SetId == i))
-                            _crawler.Crawl(i, _db);
+                    using (var db = _contextFactory.GetForWrite()) {
+                        for (var i = 0; i < db.Context.BeatmapSet.Last().SetId; i++)
+                        {
+                            if (!db.Context.BeatmapSet.Any(set => set.SetId == i))
+                                _crawler.Crawl(i, db.Context);
+                        }
                     }
                     _crawler.BeginCrawling();
                     break;
