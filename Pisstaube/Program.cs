@@ -27,6 +27,10 @@ namespace Pisstaube
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
                 .UseSentry(Environment.GetEnvironmentVariable("SENTRY_DNS"))
+                .UseKestrel(opt =>
+                {
+                    opt.Limits.MaxRequestBodySize = null;
+                })
                 .UseStartup<Startup>();
     }
 }

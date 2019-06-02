@@ -34,6 +34,8 @@ namespace Pisstaube.Database
                     x.Query(query => query.Exists(exists => exists.Field(field => field.SetId == set.SetId))));
                 var map = ElasticBeatmap.GetElasticBeatmap(set);
 
+                Logger.LogPrint($"Index ElasticBeatmap of Id {set.SetId}");
+                
                 var result = _elasticClient.IndexDocument(map);
                 if (!result.IsValid)
                     Logger.LogPrint(result.DebugInformation, LoggingTarget.Network, LogLevel.Important);

@@ -69,10 +69,6 @@ namespace Pisstaube
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            if (Environment.GetEnvironmentVariable("LOG_LEVEL") != null)
-                if (Enum.TryParse(Environment.GetEnvironmentVariable("LOG_LEVEL"), out LogLevel level))
-                    Logger.Level = level;
-
             services
                 .AddDbContext<PisstaubeDbContext>();
 
@@ -110,6 +106,12 @@ namespace Pisstaube
         public void Configure(IApplicationBuilder app, IHostingEnvironment env,
             Crawler crawler, APIAccess apiv2, Kaesereibe reibe)
         {
+            if (Environment.GetEnvironmentVariable("LOG_LEVEL") != null)
+                if (Enum.TryParse(Environment.GetEnvironmentVariable("LOG_LEVEL"), out LogLevel level))
+                    Logger.Level = level;
+
+            Logger.Storage = dataStorage.GetStorageForDirectory("logs");
+            
             if (env.IsDevelopment())
                 app.UseDeveloperExceptionPage();
             else
