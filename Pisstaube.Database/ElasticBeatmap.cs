@@ -22,7 +22,7 @@ namespace Pisstaube.Database
         public List<PlayMode> Mode;
         public List<string> DiffName;
 
-        public ulong ApprovedDate;
+        public double ApprovedDate;
 
         public override string ToString()
         {
@@ -50,7 +50,7 @@ namespace Pisstaube.Database
                 Title = bmset.Title,
                 DiffName = bmset.ChildrenBeatmaps.Select(cb => cb.DiffName).ToList(),
                 ApprovedDate =
-                    (ulong) (bmset.ApprovedDate?.Subtract(new DateTime(1970, 1, 1, 0, 0, 0, 0)).TotalSeconds ?? 0)
+                    (bmset.ApprovedDate?.Subtract(new DateTime(1970, 1, 1, 0, 0, 0, 0)).TotalSeconds ?? 0)
             };
             return bm;
         }

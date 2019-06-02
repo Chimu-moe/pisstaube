@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Elasticsearch.Net;
 using Nest;
 using opi.v1;
 using osu.Framework.Logging;
@@ -68,33 +69,37 @@ namespace Pisstaube.Database
                     var ret = s
                         .From(offset)
                         .Size(amount)
-                        .MinScore(5)
+                        .MinScore(10)
                         .Query(q =>
-                            q.Bool(b =>
-                                b.Filter(filter =>
-                                        rankedStatus != null ?
-                                            filter.Term(term => term.Field("rankedStatus")
-                                                .Value(rankedStatus)) :
-                                            filter
-                                    )
-                                    .Filter(filter =>
-                                        mode != PlayMode.All ?
-                                            filter.Term(term => term.Field(p => p.Mode)
-                                                .Value(mode)) :
-                                            filter
+                            q.Bool(b => b
+                                    .Must(must =>
+                                        {
+                                            QueryContainer res = must;
+                                            if (rankedStatus != null)
+                                                res = must.Term(term => term.Field(p => p.RankedStatus)
+                                                    .Value(rankedStatus));
+                                            
+                                            if (mode != PlayMode.All)
+                                                res &= must.Term(term => term.Field(p => p.Mode)
+                                                    .Value(mode));
+
+                                            return res;
+                                        }
                                     )
                                     .Should(should =>
-                                        should.Match(match => match.Field(p => p.Creator).Query(query)) ||
+                                        should.Match(match => match.Field(p => p.Creator).Query(query).Boost(5)) ||
                                         should.Match(match => match.Field(p => p.Artist).Query(query)) ||
                                         should.Match(match => match.Field(p => p.DiffName).Query(query)) ||
                                         should.Match(match => match.Field(p => p.Tags).Query(query)) ||
-                                        should.Match(match => match.Field(p => p.Title).Query(query).Boost(5))
+                                        should.Match(match => match.Field(p => p.Title).Query(query).Boost(2))
                                     )
                             )
                         );
+                    Logger.LogPrint(_elasticClient.RequestResponseSerializer.SerializeToString(ret),
+                        LoggingTarget.Network, LogLevel.Debug);
                     return ret;
                 });
-                
+
                 if (!result.IsValid)
                     Logger.LogPrint(result.DebugInformation, LoggingTarget.Network, LogLevel.Important);
 
