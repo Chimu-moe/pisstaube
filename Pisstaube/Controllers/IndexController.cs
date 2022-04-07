@@ -10,7 +10,8 @@ using osu.Game.IO;
 using osu.Game.Online.API;
 using osu.Game.Scoring.Legacy;
 using Pisstaube.CacheDb;
-using Pisstaube.Database;
+using Pisstaube.Core.Database;
+using Pisstaube.Core.Utils;
 using Pisstaube.Online;
 using Pisstaube.Utils;
 using StatsdClient;
@@ -24,7 +25,7 @@ namespace Pisstaube.Controllers
         private readonly IAPIProvider _apiProvider;
         private readonly Storage _fileStorage;
         private readonly PisstaubeDbContext _dbContext;
-        private readonly object _dbContextLock = new object();
+        private readonly object _dbContextLock = new();
         private readonly PisstaubeCacheDbContextFactory _cache;
         private readonly BeatmapDownloader _downloader;
         private readonly SetDownloader _setDownloader;

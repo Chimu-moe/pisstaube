@@ -21,11 +21,10 @@ using osu.Game.IO;
 using osu.Game.Online.API;
 using Pisstaube.Allocation;
 using Pisstaube.CacheDb;
-using Pisstaube.Crawler;
-using Pisstaube.Database;
-using Pisstaube.Engine;
+using Pisstaube.Core.Database;
+using Pisstaube.Core.Engine;
+using Pisstaube.Core.Utils;
 using Pisstaube.Online;
-using Pisstaube.Online.Crawler;
 using Pisstaube.Utils;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using Pomelo.EntityFrameworkCore.MySql.Storage;
@@ -99,8 +98,6 @@ namespace Pisstaube
             var builder = new ContainerBuilder();
             
             builder.Populate(services);
-            builder.RegisterType<OsuCrawler>().AsSelf().As<ICrawler>().SingleInstance();
-            builder.RegisterType<DatabaseHouseKeeper>().SingleInstance();
             
             builder.RegisterType<IpfsCache>().SingleInstance();
             
@@ -110,9 +107,9 @@ namespace Pisstaube
             builder.RegisterType<FileStore>();
             builder.RegisterType<PisstaubeCacheDbContextFactory>().AsSelf();
             builder.RegisterType<SetDownloader>().AsSelf();
-            builder.RegisterType<SmartStorage>().AsSelf();
 
-            builder.RegisterType<BeatmapSearchEngine>().As<IBeatmapSearchEngineProvider>();
+            //builder.RegisterType<ElasticBeatmapSearchEngine>().As<IBeatmapSearchEngineProvider>();
+            builder.RegisterType<MeiliBeatmapSearchEngine>().As<IBeatmapSearchEngineProvider>();
             builder.RegisterType<BeatmapDownloader>();
 
             builder.RegisterType<OsuConfigManager>();
@@ -122,42 +119,11 @@ namespace Pisstaube
             
             return new AutofacServiceProvider(AutofacContainer);
         }
-
-
-        private static void MetricUpdater(IAPIProvider provider, SmartStorage smartStorage, ICrawler osuCrawler, DatabaseHouseKeeper houseKeeper)
-        {
-            while (true)
-            {
-                DogStatsd.ServiceCheck("is_active", Status.OK);
-                DogStatsd.ServiceCheck("is_crawling", GlobalConfig.EnableCrawling ? Status.OK : Status.WARNING); 
-                DogStatsd.ServiceCheck("is_search_enabled", GlobalConfig.EnableSearch ? Status.OK : Status.CRITICAL); 
-                DogStatsd.ServiceCheck("is_updating_enabled", GlobalConfig.EnableUpdating ? Status.OK : Status.CRITICAL);
-                DogStatsd.ServiceCheck("osu_api_status", provider?.State switch
-                {
-                    APIState.Offline => Status.CRITICAL,
-                    APIState.Failing => Status.CRITICAL,
-                    APIState.Connecting => Status.WARNING,
-                    APIState.Online => Status.OK,
-                    _ => Status.UNKNOWN
-                });
-                
-                DogStatsd.Set("smart_storage.free_space", smartStorage.DataDirectorySize / (double) smartStorage.MaxSize);
-                DogStatsd.Set("smart_storage.max_space", smartStorage.MaxSize);
-                
-                DogStatsd.Set("osu_crawler.latest_id", osuCrawler.LatestId);
-                DogStatsd.Set("house_keeper.to_update", houseKeeper.ToUpdate);
-                DogStatsd.Set("house_keeper.remaining", houseKeeper.Remaining);
-
-                Thread.Sleep(TimeSpan.FromMinutes(1));
-            }
-        }
-
-
+        
         [UsedImplicitly]
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env,
-            ICrawler crawler, IAPIProvider apiProvider, DatabaseHouseKeeper houseKeeper,
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IAPIProvider apiProvider,
             PisstaubeCacheDbContextFactory cacheDbContextFactory, IBeatmapSearchEngineProvider searchEngine,
-            SmartStorage smartStorage, PisstaubeDbContext dbContext)
+            PisstaubeDbContext dbContext)
         {
             Logger.Enabled = true;
             Logger.Level = LogLevel.Debug;
@@ -176,8 +142,6 @@ namespace Pisstaube
             _osuContextFactory.Get().Migrate();
 
             DogStatsd.Configure(new StatsdConfig {Prefix = "pisstaube"});
-
-            new Thread(() => MetricUpdater(apiProvider, smartStorage, crawler, houseKeeper)).Start();
             
             JsonUtil.Initialize();
 
@@ -208,13 +172,7 @@ namespace Pisstaube
                 app.UseDeveloperExceptionPage();
             else
                 app.UseHsts();
-            
-            if (GlobalConfig.EnableCrawling)
-                crawler.Start();
-            
-            if (GlobalConfig.EnableUpdating)
-                houseKeeper.Start();
-            
+
             app.UseFileServer(new FileServerOptions
             {
                 FileProvider = new PhysicalFileProvider(Path.Join(Directory.GetCurrentDirectory(), "data/wwwroot")),

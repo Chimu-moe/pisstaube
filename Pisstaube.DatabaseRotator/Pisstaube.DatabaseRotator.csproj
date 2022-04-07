@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Pisstaube\Pisstaube.csproj" />
+      <ProjectReference Include="..\Pisstaube.Core\Pisstaube.Core.csproj" />
     </ItemGroup>
 
 </Project>

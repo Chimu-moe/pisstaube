@@ -7,8 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using osu.Game.Beatmaps;
 using Pisstaube.Allocation;
-using Pisstaube.Database.Models;
-using Pisstaube.Engine;
+using Pisstaube.Core.Database.Models;
+using Pisstaube.Core.Engine;
+using Pisstaube.Core.Utils;
 using Pisstaube.Utils;
 using StatsdClient;
 
@@ -106,7 +107,7 @@ namespace Pisstaube.Controllers.cheesegull
             if (ca != null)
                 return Ok(ca);
 
-            var result = _searchEngine.Search(query, amount, offset, status, (PlayMode) mode);
+            var result = await _searchEngine.Search(query, amount, offset, status, (PlayMode) mode);
             
             var beatmapSets = result as BeatmapSet[] ?? result.ToArray();
             if (beatmapSets.Length == 0) result = null; // Cheesegull logic ^^,
