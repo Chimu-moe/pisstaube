@@ -15,7 +15,7 @@ namespace Pisstaube
 {
     internal static class Program
     {
-        private static readonly CancellationTokenSource Cts = new CancellationTokenSource();
+        private static readonly CancellationTokenSource Cts = new();
         
         private static async Task Main(string[] args)
         {

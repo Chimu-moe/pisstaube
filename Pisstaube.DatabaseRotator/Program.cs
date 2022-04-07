@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using osu.Framework.Logging;
-using Pisstaube.Database;
-using Pisstaube.Engine;
+using Pisstaube.Core.Database;
+using Pisstaube.Core.Engine;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using Pomelo.EntityFrameworkCore.MySql.Storage;
 
@@ -14,7 +15,7 @@ namespace Pisstaube.DatabaseRotator
     internal static class Program
     {
         private static PisstaubeDbContext _dbContext;
-        private static BeatmapSearchEngine _searchEngine = new BeatmapSearchEngine(_dbContext);
+        private static MeiliBeatmapSearchEngine _searchEngine = new(_dbContext);
         
         private static async Task Main(string[] args)
         {
@@ -44,12 +45,11 @@ namespace Pisstaube.DatabaseRotator
             }
             
             Logger.LogPrint("Fetching all beatmap sets...");
-            var beatmapSets = await _dbContext.BeatmapSet
-                .Include(o => o.ChildrenBeatmaps)
-                .ToListAsync();
-            Logger.LogPrint($"{beatmapSets.Count} Beatmap sets to index.", LoggingTarget.Database);
+            var beatmapSets = _dbContext.BeatmapSet
+                .Include(o => o.ChildrenBeatmaps);
+            Logger.LogPrint($"{await beatmapSets.CountAsync()} Beatmap sets to index.", LoggingTarget.Database);
             
-            _searchEngine.Index(beatmapSets);
+            await _searchEngine.Index(beatmapSets);
         }
     }
 }
